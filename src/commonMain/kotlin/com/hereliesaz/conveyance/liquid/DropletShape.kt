@@ -51,7 +51,11 @@ class DropletShape(
             val gravityFactor = 1f - gravitySquash * bottomWeight
 
             // Peaks (=1) aligned with dragAngleRadians, troughs (~0) perpendicular to it --
-            // stretches the leading/trailing edge, compresses the sides, roughly preserving area.
+            // stretches the leading/trailing edge, compresses the sides. This does not preserve
+            // area (that would need axisAlignment's mean subtracted, 0.5 not 0.33): the shape
+            // visibly balloons at high elongation, which reads fine for a droplet mid-stretch --
+            // stretched liquid catching more light is a real visual cue -- but isn't an area-
+            // conserving deformation.
             val axisAlignment = cos(theta - dragAngleRadians).toFloat().let { it * it }
             val stretchFactor = (1f + elongation * (axisAlignment - 0.33f)).coerceAtLeast(0.4f)
 

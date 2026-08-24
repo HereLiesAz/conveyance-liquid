@@ -73,9 +73,11 @@ Example composable manifest referencing this library:
   - `liquid.drop.puddle` -- a drop that wobbles under its own weight at rest, no touch involved,
     and periodically sheds a satellite droplet on its own -- real puddle instability, past a
     critical size gravity overcomes surface tension even without a disturbance. Reuses
-    `gravitySquashFor` as the wobble amplitude directly (scaled), so a `puddle` comfortably
-    crosses the fission threshold while a `bead` used with the same template just sits still --
-    correctly, with no surface-gated branch needed.
+    `gravitySquashFor` as the wobble amplitude directly (scaled), so a `puddle` crosses the
+    fission threshold (by about 8% at the current constants -- not a wide margin, no test pins
+    it) while a `bead` used with the same template just sits still -- correctly, with no
+    surface-gated branch needed. The shed itself is triggered off the wobble's own live value
+    crossing the threshold on its way down, not a second independent timer.
 - **`LiquidField`** (`LiquidField.kt`) -- genuine two-body coalescence: two **independently
   addressed** `RestingDrop`s, each placed by the host's own `firstPlacement`/`secondPlacement`
   modifiers (an `.align`, an `.offset`, a drag gesture), with their real on-screen centers
@@ -96,6 +98,21 @@ fission -- have both a self-contained template and, for coalescence, a genuine t
 satellite drop that can itself re-coalesce back into its parent, rather than only drifting away
 and fading), and `LiquidField` is coalescence-only -- it doesn't yet call `MAX_ELONGATION`/shear
 physics when two drops collide hard rather than drift gently together.
+
+An adversarial audit found and this repo has since fixed four real defects, beyond the
+already-known missing click wiring (every template now attaches
+`Modifier.tell(owesTell, weight).clickable { engage() }`, matching
+`conveyance-demo/.../Gallery.kt`'s own wiring): `liquid.drop.puddle`'s satellite shed ran off a
+second, independent timer whose period didn't evenly divide the wobble's own, so after the first
+cycle it drifted out of phase and fired while the drop was nowhere near stretched -- it's now
+triggered directly off the wobble's own live value crossing the shear threshold; `LiquidField`'s
+connecting neck painted `first`'s tint at both ends regardless of `second`'s own hue, contradicting
+its own "catching the light the same way each drop's own gloss does" comment -- it now blends each
+drop's own tint at its own end; `DropletShape`'s "roughly preserving area" claim was false by up to
+63% at the elongation levels the templates actually reach (the doc comment has been corrected, not
+the shape itself -- the visual ballooning reads fine for a stretched droplet, it just isn't
+area-conserving); and `LiquidHue.of`'s hash fallback could hand `%` a negative dividend for
+`hue.hashCode() == Int.MIN_VALUE` and throw -- replaced with `mod`, which can't.
 
 ## Using it
 

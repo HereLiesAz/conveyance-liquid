@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,12 +42,20 @@ import androidx.compose.ui.unit.sp
 import com.hereliesaz.conveyance.Act
 import com.hereliesaz.conveyance.ActState
 import com.hereliesaz.conveyance.compose.Offer
+import com.hereliesaz.conveyance.compose.tell
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.launch
+
+// Every template attaches Modifier.tell(owesTell, weight).clickable { engage() } to its outermost
+// shape -- the wiring Conveyance's own demo (conveyance-demo/.../Gallery.kt) uses at every real
+// Offer call site. Without it a template still renders correctly but is inert: nothing engages
+// the act on tap, so ActState can never leave Ready through this template alone.
 
 /**
  * What a `kind: "composable"` `.azp` package's `elements[]` entry (azphalt `spec/composable.md`)
@@ -118,6 +128,8 @@ fun RestingDrop(request: ComposableRequest) {
         Offer(act = request.act) {
             Box(
                 modifier = Modifier
+                    .tell(owesTell, weight)
+                    .clickable { engage() }
                     .size(diameter)
                     .clip(DropletShape(gravitySquash = squash))
                     .background(glossBrush(tint, diameterPx)),
@@ -166,6 +178,8 @@ fun DraggableDrop(request: ComposableRequest) {
             Box(modifier = Modifier.size(diameter * 1.6f), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
+                        .tell(owesTell, weight)
+                        .clickable { engage() }
                         .size(diameter)
                         .pointerInput(Unit) {
                             detectDragGestures(
@@ -247,6 +261,8 @@ fun CoalescingPair(request: ComposableRequest) {
             val diameterPx = with(LocalDensity.current) { (diameter * 1.6f).toPx() }
             Box(
                 modifier = Modifier
+                    .tell(owesTell, weight)
+                    .clickable { engage() }
                     .size(diameter * 1.6f)
                     .clip(LiquidPairShape(proximity = proximity))
                     .background(glossBrush(tint, diameterPx)),
@@ -269,8 +285,11 @@ private const val AMBIENT_DRAG_ANGLE_RADIANS = 0.9f
  * amplitude is [LiquidSize.gravitySquashFor] scaled by [AMBIENT_ELONGATION_SCALE] -- the same
  * gravity-vs-surface-tension number that already sets how flattened a resting drop is, reused
  * here rather than a second, disconnected instability knob. At `puddle`'s squash (0.22) that
- * comfortably crosses [SHEAR_THRESHOLD]; at `bead`'s (0.04) it stays far under it, so a bead used
- * with this same template just sits still, correctly, rather than needing a surface-gated branch.
+ * crosses [SHEAR_THRESHOLD]; at `bead`'s (0.04) it stays far under it, so a bead used with this
+ * same template just sits still, correctly, rather than needing a surface-gated branch. The shed
+ * is triggered off the wobble's own live value crossing the threshold on its way down from the
+ * peak (via `snapshotFlow`), not a second independent timer -- two clocks with different periods
+ * would drift apart and fire the shed off-phase from the stretch it's supposed to represent.
  */
 @Composable
 fun UnstablePuddle(request: ComposableRequest) {
@@ -279,6 +298,7 @@ fun UnstablePuddle(request: ComposableRequest) {
     val diameterPx = with(LocalDensity.current) { diameter.toPx() }
     val squash = LiquidSize.gravitySquashFor(request.surface)
     val ambientPeak = (squash * AMBIENT_ELONGATION_SCALE).coerceAtMost(MAX_ELONGATION)
+    val shearLevel = SHEAR_THRESHOLD * MAX_ELONGATION
 
     val transition = rememberInfiniteTransition(label = "puddle-wobble")
     val elongation by transition.animateFloat(
@@ -293,12 +313,19 @@ fun UnstablePuddle(request: ComposableRequest) {
     val satellite = remember { Animatable(1f) }
 
     LaunchedEffect(ambientPeak) {
-        if (ambientPeak < SHEAR_THRESHOLD * MAX_ELONGATION) return@LaunchedEffect
-        while (true) {
-            delay(WOBBLE_PERIOD_MS.toLong())
-            satellite.snapTo(0f)
-            satellite.animateTo(1f, tween(SATELLITE_DRIFT_MS))
-        }
+        if (ambientPeak < shearLevel) return@LaunchedEffect
+        // Shed exactly when the live wobble descends back through the shear level -- the point a
+        // real stretched neck would actually let go -- rather than on an independent delay loop
+        // whose period (WOBBLE_PERIOD_MS + SATELLITE_DRIFT_MS) doesn't evenly divide the wobble's
+        // own (2 * WOBBLE_PERIOD_MS) and drifts out of phase with it after the first cycle.
+        snapshotFlow { elongation }
+            .drop(1)
+            .scan(ambientPeak to ambientPeak) { (_, prevValue), value -> prevValue to value }
+            .filter { (prev, value) -> prev >= shearLevel && value < shearLevel }
+            .collect {
+                satellite.snapTo(0f)
+                satellite.animateTo(1f, tween(SATELLITE_DRIFT_MS))
+            }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -306,6 +333,8 @@ fun UnstablePuddle(request: ComposableRequest) {
             Box(modifier = Modifier.size(diameter * 1.6f), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
+                        .tell(owesTell, weight)
+                        .clickable { engage() }
                         .size(diameter)
                         .clip(
                             DropletShape(

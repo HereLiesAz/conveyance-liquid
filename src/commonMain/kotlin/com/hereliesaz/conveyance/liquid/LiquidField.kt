@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -40,7 +41,8 @@ fun LiquidField(
     val density = LocalDensity.current
     val firstRadiusPx = with(density) { (LiquidSize.diameterFor(first.surface) / 2).toPx() }
     val secondRadiusPx = with(density) { (LiquidSize.diameterFor(second.surface) / 2).toPx() }
-    val tint = LiquidHue.of(first.hue)
+    val firstTint = LiquidHue.of(first.hue)
+    val secondTint = LiquidHue.of(second.hue)
 
     Box(modifier = modifier) {
         val a = firstCenter
@@ -56,7 +58,7 @@ fun LiquidField(
                 val closeness = (1f - (distance - touchDistance).coerceAtLeast(0f) / (neckThreshold - touchDistance))
                     .coerceIn(0f, 1f)
                 Canvas(modifier = Modifier.matchParentSize()) {
-                    drawLiquidNeck(a, b, closeness, minOf(firstRadiusPx, secondRadiusPx), tint)
+                    drawLiquidNeck(a, b, closeness, minOf(firstRadiusPx, secondRadiusPx), firstTint, secondTint)
                 }
             }
         }
@@ -76,7 +78,8 @@ private fun DrawScope.drawLiquidNeck(
     b: Offset,
     closeness: Float,
     radiusPx: Float,
-    tint: LiquidTint,
+    tintA: LiquidTint,
+    tintB: LiquidTint,
 ) {
     val delta = b - a
     val distance = delta.getDistance()
@@ -92,15 +95,17 @@ private fun DrawScope.drawLiquidNeck(
         lineTo(a.x - perpendicular.x * neckHalfHeight, a.y - perpendicular.y * neckHalfHeight)
         close()
     }
-    // Highlight at each end (catching the light the same way each drop's own gloss does),
-    // darkening toward the middle -- a real liquid neck reads thinnest and dimmest at its
-    // center, not a flat fill.
+    // Highlight at each end -- catching the light the same way each drop's own gloss does, its
+    // own tint at its own end, so a neck between two differently-hued drops actually reads as
+    // each drop's own color at that end rather than one drop's tint painted onto both --
+    // darkening toward the middle, where a real liquid neck reads thinnest and dimmest, not a
+    // flat fill.
     drawPath(
         path = path,
         brush = Brush.linearGradient(
-            0f to tint.highlight,
-            0.5f to tint.shadow,
-            1f to tint.highlight,
+            0f to tintA.highlight,
+            0.5f to lerp(tintA.shadow, tintB.shadow, 0.5f),
+            1f to tintB.highlight,
             start = a,
             end = b,
         ),
