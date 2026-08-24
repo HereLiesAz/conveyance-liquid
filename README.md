@@ -1,6 +1,6 @@
 # conveyance-liquid
 
-A composable-set library for [Conveyance](https://github.com/HereLiesAz/Conveyance): the Liquid style -- a fluid, water-themed design language.
+A composable-set library for [Conveyance](https://github.com/HereLiesAz/Conveyance): the Liquid style -- shape, motion, and transformation modeled on the real physics of a liquid drop on a solid surface, mercury beading and rolling on stone rather than a metaphor for it. Surface tension holds an element's rest shape; a touch or drag adds momentum and viscous damping; two elements that touch coalesce into one, and a dragged element can shear a satellite droplet off a stretched neck.
 
 ## What this is
 
@@ -35,7 +35,7 @@ Example composable manifest referencing this library, once it has a real templat
 
 ## Status
 
-Scaffold only. `Templates.kt` is an empty registry -- no `templateId` has been designed yet.
+Scaffold only. The concept -- real liquid-drop physics: surface tension, coalescence, viscous drag, droplet fission -- is set; no `templateId` or token vocabulary has been designed yet.
 
 ## Using it
 
