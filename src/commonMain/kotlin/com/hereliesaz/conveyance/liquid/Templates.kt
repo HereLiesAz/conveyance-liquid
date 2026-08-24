@@ -1,6 +1,11 @@
 package com.hereliesaz.conveyance.liquid
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -12,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +44,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -78,6 +85,7 @@ object Templates {
         "liquid.drop.rest" to { request -> RestingDrop(request) },
         "liquid.drop.drag" to { request -> DraggableDrop(request) },
         "liquid.drop.pair" to { request -> CoalescingPair(request) },
+        "liquid.drop.puddle" to { request -> UnstablePuddle(request) },
     )
 }
 
@@ -243,6 +251,93 @@ fun CoalescingPair(request: ComposableRequest) {
                     .clip(LiquidPairShape(proximity = proximity))
                     .background(glossBrush(tint, diameterPx)),
             )
+        }
+        request.label?.let {
+            BasicText(text = it, modifier = Modifier.padding(top = 4.dp), style = captionStyleFor(request.scale))
+        }
+    }
+}
+
+private const val WOBBLE_PERIOD_MS = 3400
+private const val AMBIENT_ELONGATION_SCALE = 5f
+private const val AMBIENT_DRAG_ANGLE_RADIANS = 0.9f
+
+/**
+ * A drop that wobbles under its own weight at rest, without any touch -- real puddle instability:
+ * past a critical size, gravity overcomes surface tension enough that a puddle doesn't sit
+ * perfectly still, and occasionally sheds a satellite droplet on its own. Ambient elongation
+ * amplitude is [LiquidSize.gravitySquashFor] scaled by [AMBIENT_ELONGATION_SCALE] -- the same
+ * gravity-vs-surface-tension number that already sets how flattened a resting drop is, reused
+ * here rather than a second, disconnected instability knob. At `puddle`'s squash (0.22) that
+ * comfortably crosses [SHEAR_THRESHOLD]; at `bead`'s (0.04) it stays far under it, so a bead used
+ * with this same template just sits still, correctly, rather than needing a surface-gated branch.
+ */
+@Composable
+fun UnstablePuddle(request: ComposableRequest) {
+    val tint = LiquidHue.of(request.hue)
+    val diameter = LiquidSize.diameterFor(request.surface)
+    val diameterPx = with(LocalDensity.current) { diameter.toPx() }
+    val squash = LiquidSize.gravitySquashFor(request.surface)
+    val ambientPeak = (squash * AMBIENT_ELONGATION_SCALE).coerceAtMost(MAX_ELONGATION)
+
+    val transition = rememberInfiniteTransition(label = "puddle-wobble")
+    val elongation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = ambientPeak,
+        animationSpec = infiniteRepeatable(
+            tween(WOBBLE_PERIOD_MS, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "elongation",
+    )
+    val satellite = remember { Animatable(1f) }
+
+    LaunchedEffect(ambientPeak) {
+        if (ambientPeak < SHEAR_THRESHOLD * MAX_ELONGATION) return@LaunchedEffect
+        while (true) {
+            delay(WOBBLE_PERIOD_MS.toLong())
+            satellite.snapTo(0f)
+            satellite.animateTo(1f, tween(SATELLITE_DRIFT_MS))
+        }
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Offer(act = request.act) {
+            Box(modifier = Modifier.size(diameter * 1.6f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(diameter)
+                        .clip(
+                            DropletShape(
+                                gravitySquash = squash,
+                                elongation = elongation,
+                                dragAngleRadians = AMBIENT_DRAG_ANGLE_RADIANS,
+                            ),
+                        )
+                        .background(glossBrush(tint, diameterPx)),
+                )
+                if (satellite.value < 1f) {
+                    val satelliteDiameter = diameter * 0.32f
+                    val driftPx = diameterPx * 0.7f * satellite.value
+                    Box(
+                        modifier = Modifier
+                            .size(satelliteDiameter)
+                            .graphicsLayer {
+                                alpha = 1f - satellite.value
+                                scaleX = 1f - satellite.value * 0.4f
+                                scaleY = scaleX
+                            }
+                            .offset {
+                                IntOffset(
+                                    x = (-driftPx * cos(AMBIENT_DRAG_ANGLE_RADIANS.toDouble())).toInt(),
+                                    y = (-driftPx * sin(AMBIENT_DRAG_ANGLE_RADIANS.toDouble())).toInt(),
+                                )
+                            }
+                            .clip(DropletShape(gravitySquash = squash))
+                            .background(glossBrush(tint, diameterPx * 0.32f)),
+                    )
+                }
+            }
         }
         request.label?.let {
             BasicText(text = it, modifier = Modifier.padding(top = 4.dp), style = captionStyleFor(request.scale))

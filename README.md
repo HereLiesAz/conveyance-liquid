@@ -67,7 +67,22 @@ Example composable manifest referencing this library:
     it together.
   - `liquid.drop.pair` -- `LiquidPairShape`'s `proximity` tracks `ActScope.yielding`'s live
     progress while the act is `ActState.Yielding`, reaching 1 (fully merged) at `Settled` -- the
-    same act-state-driven pattern `conveyance-bacterium`'s `bacterium.cell.divide` uses.
+    same act-state-driven pattern `conveyance-bacterium`'s `bacterium.cell.divide` uses. One
+    shared-center element pretending to be two -- for genuine two-body coalescence, see
+    `LiquidField` below.
+  - `liquid.drop.puddle` -- a drop that wobbles under its own weight at rest, no touch involved,
+    and periodically sheds a satellite droplet on its own -- real puddle instability, past a
+    critical size gravity overcomes surface tension even without a disturbance. Reuses
+    `gravitySquashFor` as the wobble amplitude directly (scaled), so a `puddle` comfortably
+    crosses the fission threshold while a `bead` used with the same template just sits still --
+    correctly, with no surface-gated branch needed.
+- **`LiquidField`** (`LiquidField.kt`) -- genuine two-body coalescence: two **independently
+  addressed** `RestingDrop`s, each placed by the host's own `firstPlacement`/`secondPlacement`
+  modifiers (an `.align`, an `.offset`, a drag gesture), with their real on-screen centers
+  measured via `onGloballyPositioned`. Only when they're close enough (relative to their own
+  combined radii, not a flat pixel threshold) does it paint a connecting neck between them, on a
+  `Canvas` overlay -- a decorative read of two already-placed elements' positions, never
+  repositioning either one.
 
 Unlike `conveyance-h2g2`/`conveyance-expressive`, a label isn't drawn inside the drop -- text
 baked into a droplet breaks the physical read this whole style depends on. `scale` instead sizes
@@ -76,12 +91,11 @@ an optional caption rendered beside it.
 ## Status
 
 All four phenomena from the original concept -- surface tension shape, viscous drag, coalescence,
-fission -- now have a working template. What's still not here: `liquid.drop.pair` merges two
-drops that were always declared together as one element, not two independently addressed drops
-that happen to end up near each other on screen (the same self-contained-composable scope
-`conveyance-bacterium` settled for its own eating template); and there's no reverse of
-`liquid.drop.pair` -- a merged puddle splitting back into two under its own weight, the way
-`puddle`-sized drops actually can.
+fission -- have both a self-contained template and, for coalescence, a genuine two-body version
+(`LiquidField`). What's still not here: a two-body reverse of fission (an independently addressed
+satellite drop that can itself re-coalesce back into its parent, rather than only drifting away
+and fading), and `LiquidField` is coalescence-only -- it doesn't yet call `MAX_ELONGATION`/shear
+physics when two drops collide hard rather than drift gently together.
 
 ## Using it
 
