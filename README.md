@@ -48,11 +48,26 @@ Example composable manifest referencing this library:
 - **`LiquidSize`** (in `Templates.kt`) -- `surface`'s `bead`/`puddle`/`drop` size classes set both
   the drop's diameter *and* its `gravitySquash`, since size and flatness are physically linked,
   not two independent knobs.
-- **`Templates`** (`Templates.kt`) -- two templates: `liquid.drop.rest` (static, gravity-squashed
-  only) and `liquid.drop.drag` -- a real drag gesture drives `elongation` live, and on release an
-  **underdamped spring** (`dampingRatio = 0.35`) relaxes it back to zero, a genuine
-  damped-harmonic-oscillator model producing the overshoot-and-wobble a real disturbed droplet's
-  surface tension actually produces, not a canned bounce curve.
+- **`LiquidPairShape`** (`LiquidPairShape.kt`) -- coalescence's outline: two circular drops whose
+  centers pull together as `proximity` goes 0→1, bridged by a growing rectangular neck once
+  they're close -- the same "two lobes plus a connecting belt" geometry
+  `conveyance-bacterium`'s `MitosisShape` uses, run in the opposite narrative direction (surface
+  tension pulling together, instead of a cleavage furrow pinching apart). Real geometry, not a
+  blur-and-threshold gooey-blend render -- that would need `RenderEffect`, Android-only below API
+  31; this reads as convincingly "merging" without it.
+- **`Templates`** (`Templates.kt`) -- four templates:
+  - `liquid.drop.rest` -- static, gravity-squashed only.
+  - `liquid.drop.drag` -- a real drag gesture drives `elongation` live, and on release an
+    **underdamped spring** (`dampingRatio = 0.35`) relaxes it back to zero, a genuine
+    damped-harmonic-oscillator model producing the overshoot-and-wobble a real disturbed
+    droplet's surface tension actually produces, not a canned bounce curve. Past 85% of max
+    elongation, the stretched neck **shears**: a small satellite droplet detaches at the trailing
+    tip and drifts away, shrinking and fading, over 500ms -- real fission, the way a dragged
+    mercury bead actually sheds a smaller bead when pulled too fast for surface tension to hold
+    it together.
+  - `liquid.drop.pair` -- `LiquidPairShape`'s `proximity` tracks `ActScope.yielding`'s live
+    progress while the act is `ActState.Yielding`, reaching 1 (fully merged) at `Settled` -- the
+    same act-state-driven pattern `conveyance-bacterium`'s `bacterium.cell.divide` uses.
 
 Unlike `conveyance-h2g2`/`conveyance-expressive`, a label isn't drawn inside the drop -- text
 baked into a droplet breaks the physical read this whole style depends on. `scale` instead sizes
@@ -60,12 +75,13 @@ an optional caption rendered beside it.
 
 ## Status
 
-A first real slice, not a finished set. Two templates cover shape and drag physics; the other two
-phenomena from the original concept -- **coalescence** (two drops merging on contact) and
-**fission** (a dragged drop shearing off a satellite droplet) -- aren't implemented yet. A
-convincing coalescence effect needs a real gooey-blend render (blur + alpha-threshold across both
-drops' combined layer), which is Android-only below API 31 without a fallback; that's real
-platform-specific work, not scaffolding, and is the natural next addition here.
+All four phenomena from the original concept -- surface tension shape, viscous drag, coalescence,
+fission -- now have a working template. What's still not here: `liquid.drop.pair` merges two
+drops that were always declared together as one element, not two independently addressed drops
+that happen to end up near each other on screen (the same self-contained-composable scope
+`conveyance-bacterium` settled for its own eating template); and there's no reverse of
+`liquid.drop.pair` -- a merged puddle splitting back into two under its own weight, the way
+`puddle`-sized drops actually can.
 
 ## Using it
 

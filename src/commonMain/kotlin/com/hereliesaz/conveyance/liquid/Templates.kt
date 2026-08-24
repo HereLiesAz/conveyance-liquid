@@ -2,16 +2,19 @@ package com.hereliesaz.conveyance.liquid
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -20,16 +23,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hereliesaz.conveyance.Act
+import com.hereliesaz.conveyance.ActState
 import com.hereliesaz.conveyance.compose.Offer
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 import kotlinx.coroutines.launch
 
 /**
@@ -69,6 +77,7 @@ object Templates {
     val registry: Map<String, @Composable (ComposableRequest) -> Unit> = mapOf(
         "liquid.drop.rest" to { request -> RestingDrop(request) },
         "liquid.drop.drag" to { request -> DraggableDrop(request) },
+        "liquid.drop.pair" to { request -> CoalescingPair(request) },
     )
 }
 
@@ -116,11 +125,21 @@ private const val ELONGATION_SENSITIVITY = 0.012f
 private const val MAX_ELONGATION = 1.2f
 private val RELEASE_SPRING = spring<Float>(dampingRatio = 0.35f, stiffness = 180f)
 
+/** Fission point: past this fraction of [MAX_ELONGATION], the neck between the stretched body and its lagging tail shears off a satellite droplet. */
+private const val SHEAR_THRESHOLD = 0.85f
+private const val SATELLITE_DRIFT_MS = 500
+
 /**
  * A drop that stretches along the direction it's dragged and, on release, overshoots and wobbles
  * back to rest -- an underdamped spring (`dampingRatio = 0.35`) back to zero elongation, which is
  * a real damped-harmonic-oscillator model, the same physics a real droplet's surface tension
  * enacts when it's disturbed and settles, not a canned "bounce" easing curve.
+ *
+ * Dragged fast enough (past [SHEAR_THRESHOLD] of [MAX_ELONGATION]), the stretched neck between
+ * the drop's leading body and its lagging tail shears: a small satellite droplet detaches at the
+ * trailing tip and drifts away, fading, over [SATELLITE_DRIFT_MS] -- real fission, the way a
+ * dragged mercury bead actually sheds a smaller bead when pulled too fast for surface tension to
+ * hold it together, not an ornamental particle effect.
  */
 @Composable
 fun DraggableDrop(request: ComposableRequest) {
@@ -131,34 +150,97 @@ fun DraggableDrop(request: ComposableRequest) {
     val scope = rememberCoroutineScope()
     val elongation = remember { Animatable(0f) }
     var dragAngle by remember { mutableFloatStateOf(0f) }
+    val satellite = remember { Animatable(1f) }
+    var shearing by remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Offer(act = request.act) {
+            Box(modifier = Modifier.size(diameter * 1.6f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(diameter)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDrag = { _, dragAmount ->
+                                    dragAngle = atan2(dragAmount.y, dragAmount.x)
+                                    val speed = hypot(dragAmount.x, dragAmount.y)
+                                    val target = (speed * ELONGATION_SENSITIVITY).coerceAtMost(MAX_ELONGATION)
+                                    scope.launch { elongation.snapTo(target) }
+                                    if (target >= SHEAR_THRESHOLD * MAX_ELONGATION && !shearing) {
+                                        shearing = true
+                                        scope.launch {
+                                            satellite.snapTo(0f)
+                                            satellite.animateTo(1f, tween(SATELLITE_DRIFT_MS))
+                                            shearing = false
+                                        }
+                                    }
+                                },
+                                onDragEnd = { scope.launch { elongation.animateTo(0f, RELEASE_SPRING) } },
+                                onDragCancel = { scope.launch { elongation.animateTo(0f, RELEASE_SPRING) } },
+                            )
+                        }
+                        .clip(
+                            DropletShape(
+                                gravitySquash = squash,
+                                elongation = elongation.value,
+                                dragAngleRadians = dragAngle,
+                            ),
+                        )
+                        .background(glossBrush(tint, diameterPx)),
+                )
+                if (satellite.value < 1f) {
+                    val satelliteDiameter = diameter * 0.32f
+                    // Drifts outward past the main drop's trailing edge (opposite the drag
+                    // direction) as it shears free, shrinking and fading as it goes.
+                    val driftPx = diameterPx * 0.7f * satellite.value
+                    Box(
+                        modifier = Modifier
+                            .size(satelliteDiameter)
+                            .graphicsLayer {
+                                alpha = 1f - satellite.value
+                                scaleX = 1f - satellite.value * 0.4f
+                                scaleY = scaleX
+                            }
+                            .offset {
+                                IntOffset(
+                                    x = (-driftPx * cos(dragAngle.toDouble())).toInt(),
+                                    y = (-driftPx * sin(dragAngle.toDouble())).toInt(),
+                                )
+                            }
+                            .clip(DropletShape(gravitySquash = squash))
+                            .background(glossBrush(tint, diameterPx * 0.32f)),
+                    )
+                }
+            }
+        }
+        request.label?.let {
+            BasicText(text = it, modifier = Modifier.padding(top = 4.dp), style = captionStyleFor(request.scale))
+        }
+    }
+}
+
+/**
+ * Two drops coalescing into one, driven by the act's own state the same way
+ * `conveyance-bacterium`'s `bacterium.cell.divide` drives its separation -- [ActState.Yielding]'s
+ * live progress closes the gap, [ActState.Settled] means fully merged. Real geometry (two circles
+ * plus a growing connecting neck, `LiquidPairShape`), not a crossfade between two images.
+ */
+@Composable
+fun CoalescingPair(request: ComposableRequest) {
+    val tint = LiquidHue.of(request.hue)
+    val diameter = LiquidSize.diameterFor(request.surface)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Offer(act = request.act) {
+            val proximity = when (state) {
+                is ActState.Settled -> 1f
+                is ActState.Yielding -> yielding ?: 0f
+                else -> 0f
+            }
+            val diameterPx = with(LocalDensity.current) { (diameter * 1.6f).toPx() }
             Box(
                 modifier = Modifier
-                    .size(diameter)
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDrag = { _, dragAmount ->
-                                dragAngle = atan2(dragAmount.y, dragAmount.x)
-                                val speed = hypot(dragAmount.x, dragAmount.y)
-                                scope.launch {
-                                    elongation.snapTo(
-                                        (speed * ELONGATION_SENSITIVITY).coerceAtMost(MAX_ELONGATION),
-                                    )
-                                }
-                            },
-                            onDragEnd = { scope.launch { elongation.animateTo(0f, RELEASE_SPRING) } },
-                            onDragCancel = { scope.launch { elongation.animateTo(0f, RELEASE_SPRING) } },
-                        )
-                    }
-                    .clip(
-                        DropletShape(
-                            gravitySquash = squash,
-                            elongation = elongation.value,
-                            dragAngleRadians = dragAngle,
-                        ),
-                    )
+                    .size(diameter * 1.6f)
+                    .clip(LiquidPairShape(proximity = proximity))
                     .background(glossBrush(tint, diameterPx)),
             )
         }
