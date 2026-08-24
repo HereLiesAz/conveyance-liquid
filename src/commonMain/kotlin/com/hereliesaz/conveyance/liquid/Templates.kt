@@ -1,7 +1,7 @@
-package com.hereliesaz.conveyance.water
+package com.hereliesaz.conveyance.liquid
 
 /**
- * The `water` composable-set's template registry -- what a `kind: "composable"` `.azp` package's
+ * The `liquid` composable-set's template registry -- what a `kind: "composable"` `.azp` package's
  * `templateId` resolves against once this artifact is linked at build time (azphalt spec,
  * `spec/composable.md`). A host looks a `templateId` up here; nothing arrives that this
  * artifact didn't already ship.

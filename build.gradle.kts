@@ -13,7 +13,7 @@ kotlin {
     jvmToolchain(libs.versions.jvmToolchain.get().toInt())
 
     androidLibrary {
-        namespace = "com.hereliesaz.conveyance.water"
+        namespace = "com.hereliesaz.conveyance.liquid"
         compileSdk = libs.versions.compileSdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
     }

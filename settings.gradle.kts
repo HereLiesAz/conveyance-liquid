@@ -7,7 +7,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "conveyance-water"
+rootProject.name = "conveyance-liquid"
 
 dependencyResolutionManagement {
     repositories {

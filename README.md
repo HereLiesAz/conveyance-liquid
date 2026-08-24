@@ -24,7 +24,7 @@ Example composable manifest referencing this library, once it has a real templat
   "license": "MIT",
   "compat": ">=0.1",
   "composable": {
-    "library": { "group": "com.hereliesaz.conveyance", "artifact": "conveyance-water", "version": "0.1.0" },
+    "library": { "group": "com.hereliesaz.conveyance", "artifact": "conveyance-liquid", "version": "0.1.0" },
     "elements": [
       { "id": "example", "templateId": "<pending>", "hue": "<host-defined>", "surface": "<host-defined>", "scale": "<host-defined>", "act": "<host-defined>", "jobs": ["<what this element does>"] }
     ]
@@ -44,7 +44,7 @@ repositories {
     maven("https://jitpack.io")
 }
 dependencies {
-    implementation("com.github.HereLiesAz:conveyance-water:main-SNAPSHOT")
+    implementation("com.github.HereLiesAz:conveyance-liquid:main-SNAPSHOT")
 }
 ```
 
