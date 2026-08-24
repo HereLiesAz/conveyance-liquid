@@ -12,7 +12,7 @@ artifact a composable package's `library` block points at -- the `.azp` package 
 authored and published separately, wherever its author chooses; this repo does not need to hold
 one.
 
-Example composable manifest referencing this library, once it has a real template:
+Example composable manifest referencing this library:
 
 ```jsonc
 {
@@ -26,16 +26,46 @@ Example composable manifest referencing this library, once it has a real templat
   "composable": {
     "library": { "group": "com.hereliesaz.conveyance", "artifact": "conveyance-liquid", "version": "0.1.0" },
     "elements": [
-      { "id": "example", "templateId": "<pending>", "hue": "<host-defined>", "surface": "<host-defined>", "scale": "<host-defined>", "act": "<host-defined>", "jobs": ["<what this element does>"] }
+      { "id": "confirm-record", "templateId": "liquid.drop.drag", "hue": "mercury", "surface": "bead", "scale": "lead", "act": "create", "jobs": ["confirms a destructive action"] }
     ]
   },
   "files": {}
 }
 ```
 
+## What's here
+
+- **`DropletShape`** (`DropletShape.kt`) -- the outline, drawn from a `radius(θ)` function sampled
+  around the center and smoothed into a closed curve, not a fixed corner-radius shape. Two real
+  physical effects drive it: `gravitySquash` flattens the bottom the way a sessile droplet's
+  contact patch flattens under gravity while surface tension keeps the rest round (smaller drops
+  stay closer to spherical -- surface tension dominates at small scale, the real capillary-length
+  effect); `elongation`/`dragAngleRadians` stretch the drop along its direction of travel and
+  compress it perpendicular to that, an approximation of momentum fighting surface tension.
+- **`LiquidHue`** (`LiquidHue.kt`) -- five tints (`mercury` default, plus `azure`/`verdant`/
+  `ember`/`violet`), each a base/highlight/shadow triad for a glossy, off-center specular
+  gradient -- the reflectivity that reads as "liquid" rather than "flat circle."
+- **`LiquidSize`** (in `Templates.kt`) -- `surface`'s `bead`/`puddle`/`drop` size classes set both
+  the drop's diameter *and* its `gravitySquash`, since size and flatness are physically linked,
+  not two independent knobs.
+- **`Templates`** (`Templates.kt`) -- two templates: `liquid.drop.rest` (static, gravity-squashed
+  only) and `liquid.drop.drag` -- a real drag gesture drives `elongation` live, and on release an
+  **underdamped spring** (`dampingRatio = 0.35`) relaxes it back to zero, a genuine
+  damped-harmonic-oscillator model producing the overshoot-and-wobble a real disturbed droplet's
+  surface tension actually produces, not a canned bounce curve.
+
+Unlike `conveyance-h2g2`/`conveyance-expressive`, a label isn't drawn inside the drop -- text
+baked into a droplet breaks the physical read this whole style depends on. `scale` instead sizes
+an optional caption rendered beside it.
+
 ## Status
 
-Scaffold only. The concept -- real liquid-drop physics: surface tension, coalescence, viscous drag, droplet fission -- is set; no `templateId` or token vocabulary has been designed yet.
+A first real slice, not a finished set. Two templates cover shape and drag physics; the other two
+phenomena from the original concept -- **coalescence** (two drops merging on contact) and
+**fission** (a dragged drop shearing off a satellite droplet) -- aren't implemented yet. A
+convincing coalescence effect needs a real gooey-blend render (blur + alpha-threshold across both
+drops' combined layer), which is Android-only below API 31 without a fallback; that's real
+platform-specific work, not scaffolding, and is the natural next addition here.
 
 ## Using it
 
