@@ -23,7 +23,7 @@ private const val BLOB_POINTS = 28
  *   the rest of it round. A tiny bead (small [gravitySquash]) reads as nearly spherical, the way
  *   a real small mercury bead does; a larger puddle reads visibly flattened, the way capillary
  *   length actually works.
- * - **[elongation]**/**[dragAngleRadians]** stretch the drop along the direction of motion and
+ * - **[elongation]** / **[dragAngleRadians]** stretch the drop along the direction of motion and
  *   compress it perpendicular to that -- momentum dragging the leading/trailing edge out while
  *   surface tension resists the rest, an approximation of a droplet's response to being moved
  *   across a surface rather than a canned "squash and stretch" curve.
