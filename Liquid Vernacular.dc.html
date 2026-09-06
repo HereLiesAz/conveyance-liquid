@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/tokens/shapes.css">
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/styles.css">
+  <script src="_ds/conveyance-design-system-f79d1f18-130a-428c-b8a1-d572ab3a41c6/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: #23262a; }
+  </style>
+</helmet>
+<div style="background:#23262a; min-height:100vh; padding:64px 48px 96px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:#EDEEF0;">
+
+  <div style="max-width:1040px; margin:0 auto;">
+    <div style="margin-bottom:56px;">
+      <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#8A8F94; margin-bottom:10px;">Conveyance &middot; Composable-set</div>
+      <h1 style="font-size:56px; font-weight:700; margin:0 0 14px; letter-spacing:-0.01em;">Liquid</h1>
+      <p style="font-size:18px; line-height:1.6; color:#B8BCC0; max-width:640px; margin:0;">Shape, motion and transformation modeled on the real physics of a liquid drop on a solid surface &mdash; mercury beading on stone. Surface tension holds the rest shape; drag adds momentum and viscous damping; touching drops coalesce; a dragged drop can shear off a satellite.</p>
+    </div>
+
+    <!-- Palette -->
+    <section style="margin-bottom:64px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 20px;">Hue &mdash; LiquidHue</h2>
+      <div style="display:flex; gap:36px; flex-wrap:wrap;">
+        <sc-for list="{{ paletteHues }}" as="hue" hint-placeholder-count="5">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:110px;">
+            <svg width="96" height="96" viewBox="0 0 96 96">
+              <defs>
+                <radialGradient id="{{ hue.gradId }}" cx="32%" cy="28%" r="85%">
+                  <stop offset="0%" stop-color="{{ hue.highlight }}"></stop>
+                  <stop offset="55%" stop-color="{{ hue.base }}"></stop>
+                  <stop offset="100%" stop-color="{{ hue.shadow }}"></stop>
+                </radialGradient>
+              </defs>
+              <path d="{{ hue.path }}" fill="url(#{{ hue.gradId }})"></path>
+            </svg>
+            <div style="font-size:13px; color:#C9CCCF;">{{ hue.name }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- Surface scale -->
+    <section style="margin-bottom:64px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 20px;">Surface size classes &mdash; gravitySquash</h2>
+      <div style="display:flex; gap:48px; align-items:flex-end; flex-wrap:wrap;">
+        <sc-for list="{{ scaleItems }}" as="item" hint-placeholder-count="3">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+            <svg width="{{ item.diameter }}" height="{{ item.diameter }}" viewBox="0 0 {{ item.diameter }} {{ item.diameter }}">
+              <defs>
+                <radialGradient id="{{ item.gradId }}" cx="32%" cy="28%" r="85%">
+                  <stop offset="0%" stop-color="#F2F4F6"></stop>
+                  <stop offset="55%" stop-color="#B8BCC0"></stop>
+                  <stop offset="100%" stop-color="#6E7276"></stop>
+                </radialGradient>
+              </defs>
+              <path d="{{ item.path }}" fill="url(#{{ item.gradId }})"></path>
+            </svg>
+            <div style="text-align:center;">
+              <div style="font-size:14px; color:#EDEEF0; font-weight:600;">{{ item.label }}</div>
+              <div style="font-size:12px; color:#8A8F94;">squash {{ item.squashLabel }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- Drag / shear -->
+    <section style="margin-bottom:64px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 8px;">liquid.drop.drag &mdash; viscous drag &amp; fission</h2>
+      <p style="font-size:13px; color:#8A8F94; margin:0 0 20px;">Drag the drop. Pull fast enough past the shear threshold and a satellite droplet shears off; release lets an underdamped spring (dampingRatio 0.35) snap it back.</p>
+      <div style="width:256px; height:256px; position:relative; display:flex; align-items:center; justify-content:center; background:#2C3034; border-radius:16px;" onPointerMove="{{ onDragMove }}" onPointerUp="{{ onDragUp }}" onPointerLeave="{{ onDragUp }}">
+        <svg width="160" height="160" viewBox="0 0 160 160" style="position:absolute; touch-action:none; cursor:grab;" onPointerDown="{{ onDragDown }}">
+          <defs>
+            <radialGradient id="drag-grad" cx="32%" cy="28%" r="85%">
+              <stop offset="0%" stop-color="#F2F4F6"></stop>
+              <stop offset="55%" stop-color="#B8BCC0"></stop>
+              <stop offset="100%" stop-color="#6E7276"></stop>
+            </radialGradient>
+          </defs>
+          <path d="{{ dragPath }}" fill="url(#drag-grad)"></path>
+        </svg>
+        <sc-if value="{{ dragSatVisible }}">
+          <svg width="52" height="52" viewBox="0 0 52 52" style="position:absolute; pointer-events:none; opacity:{{ dragSatOpacity }}; transform:translate({{ dragSatX }}px,{{ dragSatY }}px) scale({{ dragSatScale }});">
+            <defs>
+              <radialGradient id="drag-sat-grad" cx="32%" cy="28%" r="85%">
+                <stop offset="0%" stop-color="#F2F4F6"></stop>
+                <stop offset="55%" stop-color="#B8BCC0"></stop>
+                <stop offset="100%" stop-color="#6E7276"></stop>
+              </radialGradient>
+            </defs>
+            <path d="{{ dragSatPath }}" fill="url(#drag-sat-grad)"></path>
+          </svg>
+        </sc-if>
+      </div>
+    </section>
+
+    <!-- Coalescing pair -->
+    <section style="margin-bottom:64px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 8px;">liquid.drop.pair &mdash; coalescence, act-state driven</h2>
+      <p style="font-size:13px; color:#8A8F94; margin:0 0 20px;">Click to engage the act: Ready &rarr; Yielding (proximity climbs) &rarr; Settled (fully merged). Click again to reset.</p>
+      <div style="display:flex; align-items:center; gap:24px;">
+        <svg width="180" height="112" viewBox="0 0 180 112" style="cursor:pointer;" onClick="{{ onPairClick }}">
+          <defs>
+            <radialGradient id="pair-grad-a" cx="32%" cy="28%" r="85%">
+              <stop offset="0%" stop-color="#9BC9EC"></stop>
+              <stop offset="55%" stop-color="#3E7EB8"></stop>
+              <stop offset="100%" stop-color="#1E3F5C"></stop>
+            </radialGradient>
+          </defs>
+          <rect x="{{ pairNeckX }}" y="{{ pairNeckY }}" width="{{ pairNeckW }}" height="{{ pairNeckH }}" fill="url(#pair-grad-a)" opacity="{{ pairProximity }}"></rect>
+          <path d="{{ pairLeftPath }}" fill="url(#pair-grad-a)" transform="translate({{ pairLeftX }},0)"></path>
+          <path d="{{ pairRightPath }}" fill="url(#pair-grad-a)" transform="translate({{ pairRightX }},0)"></path>
+        </svg>
+        <div style="font-size:14px; color:#C9CCCF; text-transform:capitalize;">{{ pairPhase }}</div>
+      </div>
+    </section>
+
+    <!-- Unstable puddle -->
+    <section style="margin-bottom:64px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 8px;">liquid.drop.puddle &mdash; ambient instability</h2>
+      <p style="font-size:13px; color:#8A8F94; margin:0 0 20px;">No touch involved: a puddle wobbles under its own weight, and periodically sheds a satellite once its wobble crosses the shear threshold on the way down.</p>
+      <div style="width:256px; height:180px; position:relative; display:flex; align-items:center; justify-content:center; background:#2C3034; border-radius:16px;">
+        <svg width="144" height="144" viewBox="0 0 144 144" style="position:absolute;">
+          <defs>
+            <radialGradient id="puddle-grad" cx="32%" cy="28%" r="85%">
+              <stop offset="0%" stop-color="#F2A97C"></stop>
+              <stop offset="55%" stop-color="#C4562E"></stop>
+              <stop offset="100%" stop-color="#6E2A12"></stop>
+            </radialGradient>
+          </defs>
+          <path d="{{ puddlePath }}" fill="url(#puddle-grad)"></path>
+        </svg>
+        <sc-if value="{{ puddleSatVisible }}">
+          <svg width="46" height="46" viewBox="0 0 46 46" style="position:absolute; opacity:{{ puddleSatOpacity }}; transform:translate({{ puddleSatX }}px,{{ puddleSatY }}px) scale({{ puddleSatScale }});">
+            <defs>
+              <radialGradient id="puddle-sat-grad" cx="32%" cy="28%" r="85%">
+                <stop offset="0%" stop-color="#F2A97C"></stop>
+                <stop offset="55%" stop-color="#C4562E"></stop>
+                <stop offset="100%" stop-color="#6E2A12"></stop>
+              </radialGradient>
+            </defs>
+            <path d="{{ puddleSatPath }}" fill="url(#puddle-sat-grad)"></path>
+          </svg>
+        </sc-if>
+      </div>
+    </section>
+
+    <!-- LiquidField two-body -->
+    <section style="margin-bottom:56px;">
+      <h2 style="font-size:14px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8F94; font-weight:600; margin:0 0 8px;">LiquidField &mdash; genuine two-body coalescence</h2>
+      <p style="font-size:13px; color:#8A8F94; margin:0 0 20px;">Two independently addressed drops. Drag either one; a connecting neck paints between them only once they're close, blending each drop's own tint at its own end.</p>
+      <div style="width:320px; height:200px; position:relative; background:#2C3034; border-radius:16px; touch-action:none;" onPointerMove="{{ onFieldMove }}" onPointerUp="{{ onFieldUp }}" onPointerLeave="{{ onFieldUp }}">
+        <svg width="320" height="200" viewBox="0 0 320 200" style="position:absolute; pointer-events:none;">
+          <sc-if value="{{ neckVisible }}">
+            <defs>
+              <linearGradient id="neck-grad" x1="{{ neckX1 }}" y1="{{ neckY1 }}" x2="{{ neckX2 }}" y2="{{ neckY2 }}" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#3E8B5C"></stop>
+                <stop offset="100%" stop-color="#6E4FA8"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="{{ neckX1 }}" y1="{{ neckY1 }}" x2="{{ neckX2 }}" y2="{{ neckY2 }}" stroke="url(#neck-grad)" stroke-width="{{ neckWidth }}" stroke-linecap="round" opacity="{{ neckOpacity }}"></line>
+          </sc-if>
+        </svg>
+        <svg width="84" height="84" viewBox="0 0 84 84" style="position:absolute; left:{{ field1Left }}px; top:{{ field1Top }}px; cursor:grab; touch-action:none;" onPointerDown="{{ onField1Down }}">
+          <defs>
+            <radialGradient id="field1-grad" cx="32%" cy="28%" r="85%">
+              <stop offset="0%" stop-color="#9BD9B4"></stop>
+              <stop offset="55%" stop-color="#3E8B5C"></stop>
+              <stop offset="100%" stop-color="#1E4630"></stop>
+            </radialGradient>
+          </defs>
+          <path d="{{ field1Path }}" fill="url(#field1-grad)"></path>
+        </svg>
+        <svg width="84" height="84" viewBox="0 0 84 84" style="position:absolute; left:{{ field2Left }}px; top:{{ field2Top }}px; cursor:grab; touch-action:none;" onPointerDown="{{ onField2Down }}">
+          <defs>
+            <radialGradient id="field2-grad" cx="32%" cy="28%" r="85%">
+              <stop offset="0%" stop-color="#C4A9EC"></stop>
+              <stop offset="55%" stop-color="#6E4FA8"></stop>
+              <stop offset="100%" stop-color="#3A2758"></stop>
+            </radialGradient>
+          </defs>
+          <path d="{{ field2Path }}" fill="url(#field2-grad)"></path>
+        </svg>
+      </div>
+    </section>
+
+    <div style="border-top:1px solid #34383C; padding-top:20px; font-size:12px; color:#6E7276; line-height:1.6;">
+      An interpretation, not a port: the source's motion is derived from live spring physics and a real damped-harmonic-oscillator release &mdash; reproduced here directly for drag-release and rendered as a triangle-wave approximation for the puddle's ambient wobble. No label is ever drawn inside a drop; text baked into a droplet breaks the physical read this style depends on.
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    dragElongation: 0, dragAngle: 0, dragSatT: 1,
+    pairPhase: 'ready', pairProximity: 0,
+    puddleVal: 0, puddleSatT: 1,
+    field1: { x: -80, y: 0 }, field2: { x: 80, y: 0 },
+  };
+
+  tints = {
+    mercury: { base: '#B8BCC0', highlight: '#F2F4F6', shadow: '#6E7276' },
+    azure: { base: '#3E7EB8', highlight: '#9BC9EC', shadow: '#1E3F5C' },
+    verdant: { base: '#3E8B5C', highlight: '#9BD9B4', shadow: '#1E4630' },
+    ember: { base: '#C4562E', highlight: '#F2A97C', shadow: '#6E2A12' },
+    violet: { base: '#6E4FA8', highlight: '#C4A9EC', shadow: '#3A2758' },
+  };
+
+  MAX_ELONGATION = 1.2;
+  SHEAR_THRESHOLD = 0.85;
+  WOBBLE_PERIOD_MS = 3400;
+  AMBIENT_SCALE = 5;
+  AMBIENT_ANGLE = 0.9;
+
+  dropletPath(diameter, squash, elongation, angle) {
+    const BLOB = 28, cx = diameter / 2, cy = diameter / 2, baseR = diameter / 2;
+    const pts = [];
+    for (let i = 0; i < BLOB; i++) {
+      const theta = (2 * Math.PI * i) / BLOB;
+      const bottomWeight = Math.max(0, Math.sin(theta));
+      const gravityFactor = 1 - squash * bottomWeight;
+      const axisAlignment = Math.pow(Math.cos(theta - angle), 2);
+      const stretchFactor = Math.max(0.4, 1 + elongation * (axisAlignment - 0.33));
+      const r = baseR * gravityFactor * stretchFactor;
+      pts.push([cx + r * Math.cos(theta), cy + r * Math.sin(theta)]);
+    }
+    const n = pts.length;
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const mids = pts.map((p, i) => mid(p, pts[(i + 1) % n]));
+    let d = `M${mids[n - 1][0].toFixed(2)},${mids[n - 1][1].toFixed(2)} `;
+    for (let i = 0; i < n; i++) d += `Q${pts[i][0].toFixed(2)},${pts[i][1].toFixed(2)} ${mids[i][0].toFixed(2)},${mids[i][1].toFixed(2)} `;
+    return d + 'Z';
+  }
+
+  componentDidMount() {
+    this.dragV = 0;
+    this.releasing = false;
+    this.shearing = false;
+    this.pairStart = 0;
+    this.prevPuddleVal = 0;
+    this.puddleShedding = false;
+    this.puddleSatStart = 0;
+    this.dragSatStart = 0;
+    this.fieldDragWhich = null;
+    this._raf = requestAnimationFrame(this.tick);
+  }
+
+  componentWillUnmount() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+  }
+
+  tick = (now) => {
+    if (!this.lastTime) this.lastTime = now;
+    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    this.lastTime = now;
+
+    let next = {};
+
+    // drag release spring (dampingRatio 0.35, stiffness 180)
+    if (this.releasing) {
+      const stiffness = 180, dampingRatio = 0.35;
+      const omega0 = Math.sqrt(stiffness);
+      const dampingCoeff = 2 * dampingRatio * omega0;
+      const x = this.state.dragElongation;
+      const a = -stiffness * x - dampingCoeff * this.dragV;
+      this.dragV += a * dt;
+      let nx = x + this.dragV * dt;
+      if (Math.abs(nx) < 0.002 && Math.abs(this.dragV) < 0.01) { nx = 0; this.dragV = 0; this.releasing = false; }
+      next.dragElongation = nx;
+    }
+    if (this.shearing) {
+      const t = Math.min(1, (now - this.dragSatStart) / 500);
+      next.dragSatT = t;
+      if (t >= 1) this.shearing = false;
+    }
+
+    // puddle ambient wobble (triangle wave)
+    const ambientPeak = Math.min(0.22 * this.AMBIENT_SCALE, this.MAX_ELONGATION);
+    const period = this.WOBBLE_PERIOD_MS * 2;
+    const phase = (now % period) / this.WOBBLE_PERIOD_MS;
+    const pv = phase < 1 ? phase * ambientPeak : (2 - phase) * ambientPeak;
+    next.puddleVal = pv;
+    const shearLevel = this.SHEAR_THRESHOLD * this.MAX_ELONGATION;
+    if (this.prevPuddleVal >= shearLevel && pv < shearLevel && !this.puddleShedding) {
+      this.puddleShedding = true;
+      this.puddleSatStart = now;
+    }
+    this.prevPuddleVal = pv;
+    if (this.puddleShedding) {
+      const t = Math.min(1, (now - this.puddleSatStart) / 500);
+      next.puddleSatT = t;
+      if (t >= 1) this.puddleShedding = false;
+    }
+
+    // pair yielding animation
+    if (this.state.pairPhase === 'yielding') {
+      const t = Math.min(1, (now - this.pairStart) / 900);
+      next.pairProximity = t;
+      if (t >= 1) next.pairPhase = 'settled';
+    }
+
+    this.setState(next);
+    this._raf = requestAnimationFrame(this.tick);
+  };
+
+  onDragDown = (e) => {
+    this.dragging = true;
+    this.releasing = false;
+    this.lastPointer = { x: e.clientX, y: e.clientY };
+    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+  };
+  onDragMove = (e) => {
+    if (!this.dragging) return;
+    const dx = e.clientX - this.lastPointer.x, dy = e.clientY - this.lastPointer.y;
+    this.lastPointer = { x: e.clientX, y: e.clientY };
+    const angle = Math.atan2(dy, dx);
+    const speed = Math.hypot(dx, dy);
+    const target = Math.min(speed * 0.012, this.MAX_ELONGATION);
+    if (target >= this.SHEAR_THRESHOLD * this.MAX_ELONGATION && !this.shearing) {
+      this.shearing = true;
+      this.dragSatStart = performance.now();
+    }
+    this.setState({ dragElongation: target, dragAngle: angle });
+  };
+  onDragUp = () => {
+    if (!this.dragging) return;
+    this.dragging = false;
+    this.releasing = true;
+    this.dragV = 0;
+  };
+
+  onPairClick = () => {
+    if (this.state.pairPhase === 'ready') {
+      this.pairStart = performance.now();
+      this.setState({ pairPhase: 'yielding' });
+    } else {
+      this.setState({ pairPhase: 'ready', pairProximity: 0 });
+    }
+  };
+
+  onField1Down = (e) => {
+    this.fieldDragWhich = 'field1';
+    this.fieldStartClient = { x: e.clientX, y: e.clientY };
+    this.fieldStartPos = { ...this.state.field1 };
+    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+  };
+  onField2Down = (e) => {
+    this.fieldDragWhich = 'field2';
+    this.fieldStartClient = { x: e.clientX, y: e.clientY };
+    this.fieldStartPos = { ...this.state.field2 };
+    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+  };
+  onFieldMove = (e) => {
+    if (!this.fieldDragWhich) return;
+    const dx = e.clientX - this.fieldStartClient.x, dy = e.clientY - this.fieldStartClient.y;
+    const nx = Math.max(-135, Math.min(135, this.fieldStartPos.x + dx));
+    const ny = Math.max(-75, Math.min(75, this.fieldStartPos.y + dy));
+    this.setState({ [this.fieldDragWhich]: { x: nx, y: ny } });
+  };
+  onFieldUp = () => { this.fieldDragWhich = null; };
+
+  renderVals() {
+    const s = this.state;
+    const paletteHues = Object.keys(this.tints).map((name) => ({
+      name, ...this.tints[name],
+      gradId: 'pal-' + name,
+      path: this.dropletPath(96, 0.10, 0, 0),
+    }));
+    const scaleItems = [
+      { label: 'bead', diameter: 64, squash: 0.04, squashLabel: '0.04', gradId: 'scale-bead' },
+      { label: 'drop', diameter: 96, squash: 0.10, squashLabel: '0.10', gradId: 'scale-drop' },
+      { label: 'puddle', diameter: 144, squash: 0.22, squashLabel: '0.22', gradId: 'scale-puddle' },
+    ].map((it) => ({ ...it, path: this.dropletPath(it.diameter, it.squash, 0, 0) }));
+
+    const dragPath = this.dropletPath(160, 0.10, s.dragElongation, s.dragAngle);
+    const dragSatVisible = s.dragSatT < 1;
+    const driftPx = 160 * 0.7 * s.dragSatT;
+    const dragSatPath = this.dropletPath(52, 0.10, 0, 0);
+
+    const puddlePath = this.dropletPath(144, 0.22, s.puddleVal, this.AMBIENT_ANGLE);
+    const puddleSatVisible = s.puddleSatT < 1;
+    const puddleDriftPx = 144 * 0.7 * s.puddleSatT;
+    const puddleSatPath = this.dropletPath(46, 0.22, 0, 0);
+
+    const pairR = 42;
+    const pairOffset = (1 - s.pairProximity) * 30;
+    const pairLeftPath = this.dropletPath(pairR * 2, 0.10, 0, 0);
+    const pairRightPath = this.dropletPath(pairR * 2, 0.10, 0, 0);
+
+    const f1 = s.field1, f2 = s.field2;
+    const dx = f2.x - f1.x, dy = f2.y - f1.y;
+    const dist = Math.hypot(dx, dy) || 0.001;
+    const r = 42;
+    const threshold = r * 2 * 1.4;
+    const neckVisible = dist < threshold;
+    const proximity = Math.max(0, Math.min(1, (threshold - dist) / (threshold - r)));
+    const ux = dx / dist, uy = dy / dist;
+    const cx0 = 160, cy0 = 100;
+    const p1x = cx0 + f1.x + ux * r, p1y = cy0 + f1.y + uy * r;
+    const p2x = cx0 + f2.x - ux * r, p2y = cy0 + f2.y - uy * r;
+
+    return {
+      paletteHues, scaleItems,
+      dragPath, dragSatVisible, dragSatPath,
+      dragSatOpacity: 1 - s.dragSatT, dragSatScale: 1 - s.dragSatT * 0.4,
+      dragSatX: -driftPx * Math.cos(s.dragAngle) + 54, dragSatY: -driftPx * Math.sin(s.dragAngle) + 54,
+      onDragDown: this.onDragDown, onDragMove: this.onDragMove, onDragUp: this.onDragUp,
+
+      pairPhase: s.pairPhase, pairProximity: s.pairProximity,
+      pairLeftPath, pairRightPath,
+      pairLeftX: 30 - pairOffset, pairRightX: 108 + pairOffset - pairR * 2,
+      pairNeckX: 30 + pairR - pairOffset * 0.3, pairNeckY: 40, pairNeckW: Math.max(0, 120 - pairOffset * 2 - pairR * 2 + pairOffset * 0.6), pairNeckH: 32,
+      onPairClick: this.onPairClick,
+
+      puddlePath, puddleSatVisible, puddleSatPath,
+      puddleSatOpacity: 1 - s.puddleSatT, puddleSatScale: 1 - s.puddleSatT * 0.4,
+      puddleSatX: -puddleDriftPx * Math.cos(this.AMBIENT_ANGLE) + 49, puddleSatY: -puddleDriftPx * Math.sin(this.AMBIENT_ANGLE) + 49,
+
+      field1Left: cx0 + f1.x - 42, field1Top: cy0 + f1.y - 42,
+      field2Left: cx0 + f2.x - 42, field2Top: cy0 + f2.y - 42,
+      field1Path: this.dropletPath(84, 0.10, 0, 0), field2Path: this.dropletPath(84, 0.10, 0, 0),
+      onField1Down: this.onField1Down, onField2Down: this.onField2Down,
+      onFieldMove: this.onFieldMove, onFieldUp: this.onFieldUp,
+      neckVisible, neckX1: p1x, neckY1: p1y, neckX2: p2x, neckY2: p2y,
+      neckWidth: 6 + proximity * 40, neckOpacity: proximity,
+    };
+  }
+}
+
+</script>
+</body>
+</html>
