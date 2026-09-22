@@ -149,6 +149,16 @@ private val RELEASE_SPRING = spring<Float>(dampingRatio = 0.35f, stiffness = 180
 private const val SHEAR_THRESHOLD = 0.85f
 private const val SATELLITE_DRIFT_MS = 500
 
+/** The absolute elongation a neck shears at -- [SHEAR_THRESHOLD] of [MAX_ELONGATION]. */
+internal const val SHEAR_LEVEL = SHEAR_THRESHOLD * MAX_ELONGATION
+
+/** How far a drag of [speedPx] pixels stretches the drop, capped at [MAX_ELONGATION]. */
+internal fun elongationForDragSpeed(speedPx: Float): Float =
+    (speedPx * ELONGATION_SENSITIVITY).coerceAtMost(MAX_ELONGATION)
+
+/** Whether a drag that fast stretches the neck far enough to shear a satellite off. */
+internal fun dragShears(speedPx: Float): Boolean = elongationForDragSpeed(speedPx) >= SHEAR_LEVEL
+
 /**
  * A drop that stretches along the direction it's dragged and, on release, overshoots and wobbles
  * back to rest -- an underdamped spring (`dampingRatio = 0.35`) back to zero elongation, which is
@@ -186,9 +196,9 @@ fun DraggableDrop(request: ComposableRequest) {
                                 onDrag = { _, dragAmount ->
                                     dragAngle = atan2(dragAmount.y, dragAmount.x)
                                     val speed = hypot(dragAmount.x, dragAmount.y)
-                                    val target = (speed * ELONGATION_SENSITIVITY).coerceAtMost(MAX_ELONGATION)
+                                    val target = elongationForDragSpeed(speed)
                                     scope.launch { elongation.snapTo(target) }
-                                    if (target >= SHEAR_THRESHOLD * MAX_ELONGATION && !shearing) {
+                                    if (dragShears(speed) && !shearing) {
                                         shearing = true
                                         scope.launch {
                                             satellite.snapTo(0f)
@@ -279,6 +289,29 @@ private const val AMBIENT_ELONGATION_SCALE = 5f
 private const val AMBIENT_DRAG_ANGLE_RADIANS = 0.9f
 
 /**
+ * How far a resting drop of this size class wobbles on its own: [LiquidSize.gravitySquashFor]'s
+ * gravity-vs-surface-tension number scaled by [AMBIENT_ELONGATION_SCALE], never past
+ * [MAX_ELONGATION]. A `puddle` clears [SHEAR_LEVEL] with it; a `bead` doesn't come close.
+ */
+internal fun ambientElongationPeakFor(surface: String): Float =
+    (LiquidSize.gravitySquashFor(surface) * AMBIENT_ELONGATION_SCALE).coerceAtMost(MAX_ELONGATION)
+
+/** Whether a drop that wobbles to [ambientPeak] sheds satellites at all, untouched. */
+internal fun wobbleSheds(ambientPeak: Float): Boolean = ambientPeak >= SHEAR_LEVEL
+
+/**
+ * The shed trigger itself: the wobble's own live value descending back *through* [SHEAR_LEVEL] --
+ * the moment a real stretched neck would let go. Reading the live value this way is the whole of
+ * the fix the audit prompted: the shed used to run off a second, independent timer whose period
+ * (`WOBBLE_PERIOD_MS + SATELLITE_DRIFT_MS`) doesn't evenly divide the wobble's own
+ * (`2 * WOBBLE_PERIOD_MS`), so after one cycle it drifted out of phase and fired while the drop
+ * was nowhere near stretched. Edge-triggered, not level-triggered: staying above or below the
+ * level is not a shed, and neither is rising through it.
+ */
+internal fun crossesShearDescending(previous: Float, current: Float): Boolean =
+    previous >= SHEAR_LEVEL && current < SHEAR_LEVEL
+
+/**
  * A drop that wobbles under its own weight at rest, without any touch -- real puddle instability:
  * past a critical size, gravity overcomes surface tension enough that a puddle doesn't sit
  * perfectly still, and occasionally sheds a satellite droplet on its own. Ambient elongation
@@ -297,8 +330,7 @@ fun UnstablePuddle(request: ComposableRequest) {
     val diameter = LiquidSize.diameterFor(request.surface)
     val diameterPx = with(LocalDensity.current) { diameter.toPx() }
     val squash = LiquidSize.gravitySquashFor(request.surface)
-    val ambientPeak = (squash * AMBIENT_ELONGATION_SCALE).coerceAtMost(MAX_ELONGATION)
-    val shearLevel = SHEAR_THRESHOLD * MAX_ELONGATION
+    val ambientPeak = ambientElongationPeakFor(request.surface)
 
     val transition = rememberInfiniteTransition(label = "puddle-wobble")
     val elongation by transition.animateFloat(
@@ -313,7 +345,7 @@ fun UnstablePuddle(request: ComposableRequest) {
     val satellite = remember { Animatable(1f) }
 
     LaunchedEffect(ambientPeak) {
-        if (ambientPeak < shearLevel) return@LaunchedEffect
+        if (!wobbleSheds(ambientPeak)) return@LaunchedEffect
         // Shed exactly when the live wobble descends back through the shear level -- the point a
         // real stretched neck would actually let go -- rather than on an independent delay loop
         // whose period (WOBBLE_PERIOD_MS + SATELLITE_DRIFT_MS) doesn't evenly divide the wobble's
@@ -321,7 +353,7 @@ fun UnstablePuddle(request: ComposableRequest) {
         snapshotFlow { elongation }
             .drop(1)
             .scan(ambientPeak to ambientPeak) { (_, prevValue), value -> prevValue to value }
-            .filter { (prev, value) -> prev >= shearLevel && value < shearLevel }
+            .filter { (prev, value) -> crossesShearDescending(prev, value) }
             .collect {
                 satellite.snapTo(0f)
                 satellite.animateTo(1f, tween(SATELLITE_DRIFT_MS))

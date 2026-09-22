@@ -74,10 +74,13 @@ Example composable manifest referencing this library:
     and periodically sheds a satellite droplet on its own -- real puddle instability, past a
     critical size gravity overcomes surface tension even without a disturbance. Reuses
     `gravitySquashFor` as the wobble amplitude directly (scaled), so a `puddle` crosses the
-    fission threshold (by about 8% at the current constants -- not a wide margin, no test pins
-    it) while a `bead` used with the same template just sits still -- correctly, with no
-    surface-gated branch needed. The shed itself is triggered off the wobble's own live value
-    crossing the threshold on its way down, not a second independent timer.
+    fission threshold (by about 8% at the current constants -- not a wide margin, pinned by
+    `TemplatesTest`) while a `bead` used with the same template just sits still -- correctly,
+    with no surface-gated branch needed. The shed itself is triggered off the wobble's own live
+    value crossing the threshold on its way down (`crossesShearDescending`), not a second
+    independent timer whose period drifted out of phase with the wobble's own -- also pinned by
+    `TemplatesTest`, which replays a simulated wobble across several cycles and checks the shed
+    lands at the same phase every time.
 - **`LiquidField`** (`LiquidField.kt`) -- genuine two-body coalescence: two **independently
   addressed** `RestingDrop`s, each placed by the host's own `firstPlacement`/`secondPlacement`
   modifiers (an `.align`, an `.offset`, a drag gesture), with their real on-screen centers
